@@ -25,7 +25,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 config = {
   "name": "breakout_apex",
-  "debug": True,  # if true, disable write result to output_dir
+  "debug": False,  # if true, disable write result to output_dir
   "train_mode": True,
   "weight_path": "./results/20210919174401/3000.pth",
   "output_dir": "./results/{}".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")),
