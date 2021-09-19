@@ -1,17 +1,17 @@
 import time
 import sys
 sys.path.append('./../')
-from lib.dqn import Trainer, Examiner, Brain, Agent, BrainParameter, TrainParameter
-from lib.replay_memory import ReplayMemory, PrioritizedReplayMemory
+from lib.replay import ReplayMemory, PrioritizedReplayMemory
+from lib.env import CartpoleEnv, BreakoutEnv
+from lib.model import DuelingLinearNet, CNNNet
+from lib.trainer import Trainer, TrainParameter
+from lib.examiner import Examiner
+from lib.agent import Agent
+from lib.brain import Brain, BrainParameter
 from lib.util import Color
 color = Color()
 import yaml
-from pathlib import Path
 import torch
-import torch.nn as nn
-import gym
-import argparse
-from importlib import import_module
 import json
 import datetime
 import os
@@ -22,69 +22,105 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #####         Main         ######
 #################################
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--file',type=str, default='', help='Config file')
-    args = parser.parse_args()
-    color.green("device: {}".format(device))
+env = BreakoutEnv()
+num_actions = env.action_space.n
+init_screen = env.reset()
+_, ch, screen_height, screen_width = init_screen.shape
+net = CNNNet(screen_height, screen_width, num_actions)
 
-    if args.file == "":
-        color.red("Config is not found: Please use -f option")
-        sys.exit(1)
 
-    def load_yaml(filename: str):
-        with open("{}".format(Path(filename).resolve()), 'r') as f:
-            d = yaml.safe_load(f)
-        return d
-    config = load_yaml(args.file)
-    color.green("config: {}".format(json.dumps(config, indent=2)))
-    time.sleep(2)
+#env = CartpoleEnv()
+#num_actions = env.action_space.n
+#num_states = env.observation_space.shape[0]
+#net = DuelingLinearNet(num_states, num_actions)
 
-    ''' Memory生成 '''
-    memory = ReplayMemory(CAPACITY=config["replay"]["capacity"])
-    if config["replay"]["type"] == "PrioritizedExperienceReplay":
-        memory = PrioritizedReplayMemory(CAPACITY=config["replay"]["capacity"])
+config = {
+  "name": "Carpole_dqn",
+  "debug": False,  # if true, disable write result to output_dir
+  "output_dir": "./results/{}".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")),
+  "replay": {
+    "type": "PrioritizedExperienceReplay",
+    "capacity": 10000
+  },
+  "brain": {
+    "batch_size": 32,
+    "gamma": 0.97,
+    "eps_start": 0.9,
+    "eps_end": 0.05,
+    "eps_decay": 200,
+    "multi_step_bootstrap": True,
+    "num_multi_step_bootstrap": 5,
+  },
+  "train": {
+    "train_mode": True,
+    "num_episode": 1000,
+    "target_update_iter": 20,
+    "render": False,
+    "save_iter": 1000
+  },
+  "eval": {
+    "num_episode": 100,
+    "filename": "cartpole_1000.pth",
+    "render": True
+  }
+}
 
-    ''' 環境生成 '''
-    module = import_module("data.{}".format(config["info"]["module_name"]))
-    env, net = module.get_env_net()
-    
-    ''' エージェント生成 '''
-    brain_param = BrainParameter(
-        replay_memory=memory, 
-        net=net, 
-        batch_size=config["train"]["batch_size"],
-        gamma=config["train"]["gamma"],
-        eps_start=config["train"]["eps_start"],
-        eps_end=config["train"]["eps_end"],
-        eps_decay=config["train"]["eps_decay"],
-        multi_step_bootstrap=config["train"]["multi_step_bootstrap"],
-        num_multi_step_bootstrap=config["train"]["num_multi_step_bootstrap"],
-    )
-    brain = Brain(brain_param, env.action_space.n)
-    agent = Agent(brain)
-
-    name = config["info"]["name"]
-    id = name+datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-
+def save_config(output_dir, config):
     ''' configの保存 '''
-    fn = "./results/{}/config.yaml".format(id)
+    fn = "{}/config.yaml".format(output_dir)
     dirname = os.path.dirname(fn)
     if os.path.exists(dirname) == False:
         os.makedirs(dirname)
     with open(fn, "w") as yf:
         yaml.dump(config, yf, default_flow_style=False)
 
+if __name__ == "__main__":
+    color.green("device: {}".format(device))
+
+    color.green("config: {}".format(json.dumps(config, indent=2)))
+    time.sleep(2)
+
+    ''' ReplayMemory生成 '''
+    replay = ReplayMemory(CAPACITY=config["replay"]["capacity"])
+    if config["replay"]["type"] == "PrioritizedExperienceReplay":
+        replay = PrioritizedReplayMemory(CAPACITY=config["replay"]["capacity"])
+
+    ''' 環境生成 '''
+    env = env
+
+    ''' Network生成 '''
+    net = net
+    
+    ''' エージェント生成 '''
+    brain_param = BrainParameter(
+        replay=replay, 
+        net=net, 
+        batch_size=config["brain"]["batch_size"],
+        gamma=config["brain"]["gamma"],
+        eps_start=config["brain"]["eps_start"],
+        eps_end=config["brain"]["eps_end"],
+        eps_decay=config["brain"]["eps_decay"],
+        multi_step_bootstrap=config["brain"]["multi_step_bootstrap"],
+        num_multi_step_bootstrap=config["brain"]["num_multi_step_bootstrap"],
+    )
+    brain = Brain(brain_param, env.action_space.n)
+    agent = Agent(brain)
+
+    output_dir = config["output_dir"]
+    if not config["debug"]:
+        save_config(output_dir, config)
+
     train_mode = config["train"]["train_mode"]
     if train_mode:
         ''' Trainer '''
-        trainer = Trainer(id, env, agent)
+        trainer = Trainer(env, agent)
         train_param = TrainParameter(
             target_update_iter=config["train"]["target_update_iter"],
             num_episode =config["train"]["num_episode"],
             save_iter=config["train"]["save_iter"],
-            save_filename=config["train"]["save_filename"],
             render=config["train"]["render"],
+            debug=config["debug"],
+            output_dir=config["output_dir"],
         )
         trainer.train(train_param)
     else:

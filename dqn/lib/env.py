@@ -1,19 +1,18 @@
+from abc import *
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.transforms as T
 import gym
-import numpy as np
 from typing import NamedTuple
+import torchvision.transforms as T
+import numpy as np
 from gym import spaces
 from gym.spaces.box import Box
 from PIL import Image
-import matplotlib.pyplot as plt
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 #################################
-#####      Environment     ######
+#####  Breakout Environment  ######
 #################################
 class NoopResetEnv(gym.Wrapper):
     def __init__(self, env, noop_max=30):
@@ -92,10 +91,8 @@ class MaxAndSkipEnv(gym.Wrapper):
             obs, reward, done, info = self.env.step(action)
             if i == self._skip - 2:
                 self._obs_buffer[0] = obs
-                print("obs0", obs)
             if i == self._skip - 1:
                 self._obs_buffer[1] = obs
-                print("obs1", obs)
             total_reward += reward
             if done:
                 break
@@ -196,41 +193,46 @@ class BreakoutEnv(gym.Wrapper):
         # Resize, and add a batch dimension (BCHW)
         return resize(screen).unsqueeze(0).to(device) # (1, 3, 40, 76)  (b,c,h,w)
 
+
 #################################
-#####         Net          ######
+#####  Cartpole Environment  ######
 #################################
-class DQN(nn.Module):
 
-    def __init__(self, h, w, outputs):
-        super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=5, stride=2)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
-        self.bn3 = nn.BatchNorm2d(32)
+class CartpoleEnv(gym.Wrapper):
+    def __init__(self):
+        env = gym.make('CartPole-v0').unwrapped
+        gym.Wrapper.__init__(self, env)
+        self.episode_step = 0
+        self.complete_episodes = 0
+        
+    def step(self, action): 
+        observation, reward, done, info = self.env.step(action)
+        self.episode_step += 1
 
-        # Number of Linear input connections depends on output of conv2d layers
-        # and therefore the input image size, so compute it.
-        def conv2d_size_out(size, kernel_size = 5, stride = 2):
-            return (size - (kernel_size - 1) - 1) // stride  + 1
-        convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
-        convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
-        linear_input_size = convw * convh * 32
-        self.head = nn.Linear(linear_input_size, outputs)
+        state = torch.from_numpy(observation).type(torch.FloatTensor)  # numpy変数をPyTorchのテンソルに変換
+        state = torch.unsqueeze(state, 0)
 
-    # Called with either one element to determine next action, or a batch
-    # during optimization. Returns tensor([[left0exp,right0exp]...]).
-    def forward(self, x):
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        return self.head(x.view(x.size(0), -1))
+        if self.episode_step == 200: # 200以上でdoneにする
+            done = True
 
-def get_env_net():
-    env = BreakoutEnv()
-    num_actions = env.action_space.n
-    init_screen = env.reset()
-    _, ch, screen_height, screen_width = init_screen.shape
-    net = DQN(screen_height, screen_width, num_actions)
-    return env, net
+        if done:
+            state = None
+            if self.episode_step > 195:
+                reward = 1
+                self.complete_episodes += 1  # 連続記録を更新
+                if self.complete_episodes >= 10:
+                    print("{}回連続成功".format(self.complete_episodes))
+            else:
+                # こけたら-1を与える
+                reward = -1
+                self.complete_episodes = 0
+            
+            self.episode_step = 0
+
+        return state, reward, done, info
+
+    def reset(self):
+        observation = self.env.reset()
+        state = torch.from_numpy(observation).type(torch.FloatTensor)  # numpy変数をPyTorchのテンソルに変換
+        state = torch.unsqueeze(state, 0)
+        return state

@@ -10,10 +10,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #################################
 #####         Net          ######
 #################################
-class LinearDQNSample(nn.Module):
+class LinearNet(nn.Module):
     '''線形入力のDQN'''
     def __init__(self, num_states, num_actions):
-        super(LinearDQNSample, self).__init__()
+        super(LinearNet, self).__init__()
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(num_states, 32),
             nn.ReLU(),
@@ -28,11 +28,11 @@ class LinearDQNSample(nn.Module):
         logits = self.linear_relu_stack(x)
         return logits
 
-class DQN2DSample(nn.Module):
+class CNNNet(nn.Module):
     '''二次元画像入力のDQN'''
     def __init__(self, h, w, outputs):
-        super(DQN2DSample, self).__init__()
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
+        super(CNNNet, self).__init__()
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=5, stride=2)
         self.bn1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
         self.bn2 = nn.BatchNorm2d(32)
@@ -56,10 +56,10 @@ class DQN2DSample(nn.Module):
         x = F.relu(self.bn3(self.conv3(x)))
         return self.head(x.view(x.size(0), -1))
 
-class DuelingLinearDQNSample(nn.Module):
+class DuelingLinearNet(nn.Module):
     '''線形入力でDuelingNetworkを搭載したDQN'''
     def __init__(self, num_states, num_actions):
-        super(DuelingLinearDQNSample, self).__init__()
+        super(DuelingLinearNet, self).__init__()
         self.num_states = num_states
         self.num_actions = num_actions
 
