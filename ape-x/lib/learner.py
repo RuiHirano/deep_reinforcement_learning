@@ -6,6 +6,7 @@ import torch.nn as nn
 import copy
 from .replay import Transition
 import ray
+import os
 # https://horomary.hatenablog.com/entry/2021/03/02/235512#Learner%E3%81%AE%E5%BD%B9%E5%89%B2
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,6 +23,9 @@ class ILearner(metaclass=ABCMeta):
     @abstractmethod
     def update_network(self):
         '''Target Networkの更新'''
+        pass
+    @abstractmethod
+    def save_model(self):
         pass
 
 class LearnerParameter(NamedTuple):
@@ -98,4 +102,9 @@ class Learner(ILearner):
         current_weights = self.target_net.state_dict()
         return current_weights
 
+    def save_model(self, name):
+        dirname = os.path.dirname(name)
+        if os.path.exists(dirname) == False:
+            os.makedirs(dirname)
+        torch.save(self.target_net.state_dict(), name)
 

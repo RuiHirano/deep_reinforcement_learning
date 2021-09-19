@@ -7,6 +7,8 @@ from lib.actor import Actor, ActorParameter
 from lib.trainer import Trainer, TrainerParameter
 from lib.tester import Tester, TesterParameter
 from lib.util import Color
+from lib.env import CartpoleEnv, BreakoutEnv
+from lib.model import DuelingLinearNet, CNNNet, DuelingCNNNet
 import torch.optim as optim
 color = Color()
 import yaml
@@ -21,174 +23,134 @@ import ray
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-#################################
-#####         Net          ######
-#################################
+config = {
+  "name": "breakout_apex",
+  "debug": True,  # if true, disable write result to output_dir
+  "train_mode": True,
+  "weight_path": "./results/20210919174401/3000.pth",
+  "output_dir": "./results/{}".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")),
+  "replay": {
+    "capacity": 10000,
+    "alpha": 0.6,
+    "epsilon": 0.0001
+  },
+  "actor": {
+    "batch_size": 32,
+    "gamma": 0.97,
+    "eps_start": 0.01,
+    "eps_end": 0.5,
+    "num_actors": 10,
+    "num_rollout": 200,
+    "num_multi_step_bootstrap": 5,
+  },
+  "learner": {
+    "batch_size": 32,
+    "gamma": 0.97,
+    "num_multi_step_bootstrap": 5,
+  },
+  "train": {
+    "num_minibatch": 16,
+    "num_update_cycles": 3000,
+    "batch_size": 32,
+    "save_iter": 300,
+  },
+  "tester": {
+    "num_test_episode": 10,
+  }
+}
 
-class DuelingDQN(nn.Module):
-    '''線形入力でDualingNetworkを搭載したDQN'''
-    def __init__(self, num_states, num_actions):
-        super(DuelingDQN, self).__init__()
-        self.num_states = num_states
-        self.num_actions = num_actions
-
-        self.fc1 = nn.Linear(self.num_states, 32)
-        self.relu = nn.ReLU()
-        self.fcV1 = nn.Linear(32, 32)
-        self.fcA1 = nn.Linear(32, 32)
-        self.fcV2 = nn.Linear(32, 1)
-        self.fcA2 = nn.Linear(32, self.num_actions)
-
-    def forward(self, x):
-        x = self.relu(self.fc1(x))
-
-        V = self.fcV2(self.fcV1(x))
-        A = self.fcA2(self.fcA1(x))
-
-        averageA = A.mean(1).unsqueeze(1)
-        return V.expand(-1, self.num_actions) + (A - averageA.expand(-1, self.num_actions))
-
-#################################
-#####      Environment     ######
-#################################
-
-class CartpoleEnv(gym.Wrapper):
-    def __init__(self):
-        env = gym.make('CartPole-v0').unwrapped
-        gym.Wrapper.__init__(self, env)
-        self.episode_step = 0
-        self.complete_episodes = 0
-        
-    def step(self, action): 
-        observation, reward, done, info = self.env.step(action)
-        self.episode_step += 1
-
-        state = torch.from_numpy(observation).type(torch.FloatTensor)  # numpy変数をPyTorchのテンソルに変換
-        state = torch.unsqueeze(state, 0)
-
-        if self.episode_step == 200: # 200以上でdoneにする
-            done = True
-
-        if done:
-            state = None
-            if self.episode_step > 195:
-                reward = 1
-                self.complete_episodes += 1  # 連続記録を更新
-                #if self.complete_episodes >= 10:
-                #    print("{}回連続成功".format(self.complete_episodes))
-            else:
-                # こけたら-1を与える
-                reward = -1
-                self.complete_episodes = 0
-            
-            self.episode_step = 0
-
-        return state, reward, done, info
-
-    def reset(self):
-        observation = self.env.reset()
-        state = torch.from_numpy(observation).type(torch.FloatTensor)  # numpy変数をPyTorchのテンソルに変換
-        state = torch.unsqueeze(state, 0)
-        return state
-
-#################################
-#####         Main         ######
-#################################
-
-def save_config(name: str, config):
-    id = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + name
-
+def save_config(output_dir, config):
     ''' configの保存 '''
-    fn = "./results/{}/config.yaml".format(id)
+    fn = "{}/config.yaml".format(output_dir)
     dirname = os.path.dirname(fn)
     if os.path.exists(dirname) == False:
         os.makedirs(dirname)
     with open(fn, "w") as yf:
         yaml.dump(config, yf, default_flow_style=False)
 
-def load_config(filename: str):
-    with open("{}".format(Path(filename).resolve()), 'r') as f:
-        d = yaml.safe_load(f)
-    return d
+#################################
+#####         Main         ######
+#################################
 
 if __name__ == "__main__":
-    #parser = argparse.ArgumentParser()
-    #parser.add_argument('-f', '--file',type=str, default='', help='Config file')
-    #args = parser.parse_args()
-    #color.green("device: {}".format(device))
-
-    #if args.file == "":
-    #    color.red("Config is not found: Please use -f option")
-    #    sys.exit(1)
-
-    #'''configの読み取り'''
-    #config = load_config(args.file)
-    #color.green("config: {}".format(json.dumps(config, indent=2)))
-    #time.sleep(2)
-
-    #''' configの保存 '''
-    #name = config["info"]["name"]
-    #save_config(name)
 
     '''envの作成'''
-    env = CartpoleEnv()
+    #env = CartpoleEnv()
+    #num_actions = env.action_space.n
+    #num_states = env.observation_space.shape[0]
+
+    env = BreakoutEnv()
     num_actions = env.action_space.n
-    num_states = env.observation_space.shape[0]
+    init_screen = env.reset()
+    _, ch, screen_height, screen_width = init_screen.shape
 
     '''netの作成'''
-    net = DuelingDQN(num_states, num_actions)
+    #net = DuelingLinearNet(num_states, num_actions)
+    net = DuelingCNNNet(screen_height, screen_width, num_actions)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
 
     '''actorの作成'''
-    num_actors = 10
+    num_actors = config["actor"]["num_actors"]
     epsilons = np.linspace(0.01, 0.5, num_actors)
     actors = [Actor.remote(ActorParameter(
         pid=i,
         env=env,
         net=net,
         epsilon=epsilons[i],
-        gamma=0.98,
-        num_multi_step_bootstrap=5,
-        batch_size=32,
-        num_rollout=200,
+        gamma=config["actor"]["gamma"],
+        num_multi_step_bootstrap=config["actor"]["num_multi_step_bootstrap"],
+        batch_size=config["actor"]["batch_size"],
+        num_rollout=config["actor"]["num_rollout"],
     )) for i in range(num_actors)]
 
     '''replayの作成'''
     replay = Replay(ReplayParameter(
-        capacity=10000,
-        epsilon=0.0001,
-        alpha=0.6
+        capacity=config["replay"]["capacity"],
+        epsilon=config["replay"]["epsilon"],
+        alpha=config["replay"]["alpha"],
     ))
 
     '''learnerの作成'''
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
     learner = Learner.remote(LearnerParameter(
-        batch_size=32,
-        gamma=0.98,
+        batch_size=config["learner"]["batch_size"],
+        gamma=config["learner"]["gamma"],
+        num_multi_step_bootstrap=config["learner"]["num_multi_step_bootstrap"],
         net=net,
         optimizer=optimizer,
-        num_multi_step_bootstrap=5
     ))
 
     '''testerの作成'''
     tester = Tester.remote(TesterParameter(
         env=env,
         net=net,
-        num_test_episode=10,
+        num_test_episode=config["tester"]["num_test_episode"],
+        render=False if config["train_mode"] else True
     ))
 
-    train_mode = True
+    train_mode = config["train_mode"]
     if train_mode:
+        output_dir = config["output_dir"]
+        if not config["debug"]:
+            save_config(output_dir, config)
+
         ''' Trainer '''
         train_param = TrainerParameter(
             learner=learner,
             actors=actors,
             tester=tester,
             replay=replay,
-            num_minibatch=16,
-            num_update_cycles=3000,
-            batch_size=32,
+            num_minibatch=config["train"]["num_minibatch"],
+            num_update_cycles=config["train"]["num_update_cycles"],
+            batch_size=config["train"]["batch_size"],
+            save_iter=config["train"]["save_iter"],
+            debug=config["debug"],
+            output_dir=config["output_dir"],
         )
         trainer = Trainer(train_param)
         trainer.train()
     else:
-        pass
+        color.green("start test")
+        weights = torch.load(config["weight_path"])
+        wip_tester = tester.test_play.remote(weights)
+        mean_test_score = ray.get(wip_tester)
+        color.yellow("Score: {}".format(mean_test_score))

@@ -3,7 +3,7 @@ import sys
 sys.path.append('./../')
 from lib.replay import ReplayMemory, PrioritizedReplayMemory
 from lib.env import CartpoleEnv, BreakoutEnv
-from lib.model import DuelingLinearNet, CNNNet
+from lib.model import DuelingLinearNet, CNNNet, DuelingCNNNet
 from lib.trainer import Trainer, TrainParameter
 from lib.examiner import Examiner
 from lib.agent import Agent
@@ -26,7 +26,7 @@ env = BreakoutEnv()
 num_actions = env.action_space.n
 init_screen = env.reset()
 _, ch, screen_height, screen_width = init_screen.shape
-net = CNNNet(screen_height, screen_width, num_actions)
+net = DuelingCNNNet(screen_height, screen_width, num_actions)
 
 
 #env = CartpoleEnv()
@@ -36,7 +36,7 @@ net = CNNNet(screen_height, screen_width, num_actions)
 
 config = {
   "name": "Carpole_dqn",
-  "debug": False,  # if true, disable write result to output_dir
+  "debug": True,  # if true, disable write result to output_dir
   "output_dir": "./results/{}".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")),
   "replay": {
     "type": "PrioritizedExperienceReplay",

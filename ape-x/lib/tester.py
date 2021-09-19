@@ -9,6 +9,7 @@ from .replay import Transition
 import ray
 import gym
 import copy
+import time
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,6 +28,7 @@ class TesterParameter(NamedTuple):
     env : gym.Wrapper
     net: nn.Module
     num_test_episode: int
+    render: bool
 
 
 @ray.remote
@@ -36,19 +38,25 @@ class Tester(ITester):
         self.env = param.env
         self.action_space = self.env.action_space.n
         self.q_network = copy.deepcopy(param.net).to(device)
+        self.q_network.eval()
         self.num_test_episode = param.num_test_episode
+        self.render = param.render
 
     def test_play(self, current_weights):
         #print("tester", current_weights['fcA1.weight'][0][0])
         self.q_network.load_state_dict(current_weights)
 
         episode_rewards_all = []
+        state = self.env.reset()
+
         for i in range(self.num_test_episode):
             state = self.env.reset()
             episode_rewards = 0
             done = False
             while not done:
-                action = np.argmax(self.q_network(state).tolist()) 
+                if self.render:
+                    self.env.render()
+                action = np.argmax(self.q_network(state).tolist())  # TODO
                 next_state, reward, done, _ = self.env.step(action)
                 episode_rewards += reward
                 state = next_state

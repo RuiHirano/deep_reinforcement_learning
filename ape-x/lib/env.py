@@ -7,6 +7,7 @@ import numpy as np
 from gym import spaces
 from gym.spaces.box import Box
 from PIL import Image
+from matplotlib import pyplot as plt
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -87,18 +88,19 @@ class MaxAndSkipEnv(gym.Wrapper):
         """Repeat action, sum reward, and max over last observations."""
         total_reward = 0.0
         done = None
+        obs_buffer = np.copy(self._obs_buffer)  # Copy for ray imutable error: https://github.com/ray-project/ray/issues/369
         for i in range(self._skip):
             obs, reward, done, info = self.env.step(action)
             if i == self._skip - 2:
-                self.obs_buffer[0] = obs
+                obs_buffer[0] = obs
             if i == self._skip - 1:
-                self.obs_buffer[1] = obs
+                obs_buffer[1] = obs
             total_reward += reward
             if done:
                 break
         # Note that the observation on the done=True frame
         # doesn't matter
-        max_frame = self.obs_buffer.max(axis=0)
+        max_frame = obs_buffer.max(axis=0)
 
         return max_frame, total_reward, done, info
 
@@ -178,8 +180,9 @@ class BreakoutEnv(gym.Wrapper):
             state = None
 
         return state, reward, done, info
+
 #################################
-#####  Cartpole Environment  ######
+#####  Cartpole Environment  ####
 #################################
 
 class CartpoleEnv(gym.Wrapper):
@@ -204,8 +207,8 @@ class CartpoleEnv(gym.Wrapper):
             if self.episode_step > 195:
                 reward = 1
                 self.complete_episodes += 1  # 連続記録を更新
-                if self.complete_episodes >= 10:
-                    print("{}回連続成功".format(self.complete_episodes))
+                #if self.complete_episodes >= 10:
+                #    print("{}回連続成功".format(self.complete_episodes))
             else:
                 # こけたら-1を与える
                 reward = -1

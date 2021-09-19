@@ -42,6 +42,7 @@ class Actor(IActor):
         self.action_space = self.env.action_space.n
 
         self.q_network = copy.deepcopy(param.net).to(device)
+        self.q_network.eval()
         self.epsilon = param.epsilon
         self.gamma = param.gamma
         
@@ -55,8 +56,6 @@ class Actor(IActor):
         self.num_rollout = param.num_rollout
 
     def select_action(self, state):
-        test_weights = self.q_network.state_dict()
-        #print("actor2", test_weights['fcA1.weight'][0][0])
         sample = random.random()
         if sample > self.epsilon:
             with torch.no_grad():
@@ -69,8 +68,6 @@ class Actor(IActor):
     def rollout(self, current_weights):
         #: グローバルQ関数と重みを同期
         self.q_network.load_state_dict(current_weights)
-        test_weights = self.q_network.state_dict()
-        #print("actor", test_weights['fcA1.weight'][0][0])
 
 
         #: rollout batch-size step
