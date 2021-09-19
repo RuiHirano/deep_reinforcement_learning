@@ -1,0 +1,8 @@
+version: '3'
+services:
+  dqn_breakout:
+    image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-runtime
+    container_name: dqn_breakout
+    volumes:
+      - "$PWD:$PWD"
+    command: bash

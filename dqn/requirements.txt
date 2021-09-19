@@ -1,0 +1,11 @@
+torch
+torchvision
+matplotlib
+tensorboard
+tensorflow
+pyvirtualdisplay
+gym
+pyglet
+gym[atari]
+opencv-python
+ray
