@@ -54,7 +54,6 @@ class Trainer(ITrainer):
         self.writer = None if self.debug else SummaryWriter(self.output_dir)
 
     def train(self):
-        ray.init(ignore_reinit_error=True)
         start_total = time.time()
 
         current_weights = ray.get(self.learner.get_current_weights.remote())
