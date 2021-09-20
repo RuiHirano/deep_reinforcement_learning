@@ -151,7 +151,7 @@ class Brain(IBrain):
         self.optimizer.step()
 
         ''' memoryのupdate処理(PERではpriorityを更新) '''
-        td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).squeeze(1).detach().numpy()
+        td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).squeeze(1).detach().cpu().numpy()
         self.replay.update(td_errors)
 
         return loss.item()
