@@ -13,9 +13,6 @@ import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 color = Color()
 
-# if gpu is to be used
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
 #################################
 #####        Trainer       ######
 #################################

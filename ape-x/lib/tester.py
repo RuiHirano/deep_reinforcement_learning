@@ -11,8 +11,8 @@ import gym
 import copy
 import time
 
-# if gpu is to be used
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# tester is always cpu
+device = "cpu"
 
 #################################
 #####        Tester         ######
@@ -31,7 +31,7 @@ class TesterParameter(NamedTuple):
     render: bool
 
 
-@ray.remote
+@ray.remote(num_cpus=1)
 class Tester(ITester):
     def __init__(self, param: TesterParameter):
         

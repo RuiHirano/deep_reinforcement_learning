@@ -9,9 +9,6 @@ from gym.spaces.box import Box
 from PIL import Image
 from matplotlib import pyplot as plt
 
-# if gpu is to be used
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 #################################
 #####  Breakout Environment  ######
 #################################

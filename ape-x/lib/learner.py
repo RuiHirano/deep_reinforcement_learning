@@ -35,7 +35,7 @@ class LearnerParameter(NamedTuple):
     optimizer: torch.optim.Optimizer
     num_multi_step_bootstrap: int  # multi-step bootstrapのステップ数
 
-@ray.remote
+@ray.remote(num_cpus=1, num_gpus=1 if torch.cuda.is_available() else 0)
 class Learner(ILearner):
     def __init__(self, param):
         self.batch_size = param.batch_size
@@ -74,7 +74,7 @@ class Learner(ILearner):
             assert TQ.size() == (self.batch_size,)
 
             '''td errorsを求める'''
-            td_errors = (TQ.unsqueeze(1) - Q).squeeze(1).detach().numpy()
+            td_errors = (TQ.unsqueeze(1) - Q).squeeze(1).detach().cpu().numpy()
             assert td_errors.shape == (self.batch_size, )
 
             ''' Loss を計算'''
@@ -94,12 +94,15 @@ class Learner(ILearner):
         assert len(indices_all) == self.batch_size*len(minibatchs)
         current_weights = self.policy_net.state_dict()
         self.target_net.load_state_dict(current_weights)
-        #print("learner", current_weights['fcA1.weight'][0][0])
+        
+        # actor, testerのためにweightsをcpuに変更する
+        current_weights = copy.deepcopy(self.policy_net).to("cpu").state_dict()
         
         return current_weights, indices_all, td_errors_all, loss.item()
 
     def get_current_weights(self):
-        current_weights = self.target_net.state_dict()
+        # actor, testerのためにweightsをcpuに変更する
+        current_weights = copy.deepcopy(self.target_net).to("cpu").state_dict()
         return current_weights
 
     def save_model(self, name):

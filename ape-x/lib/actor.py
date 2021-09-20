@@ -9,8 +9,8 @@ import ray
 import gym
 import copy
 
-# if gpu is to be used
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# actor is always cpu
+device = "cpu"
 
 #################################
 #####        Actor         ######
@@ -33,7 +33,7 @@ class ActorParameter(NamedTuple):
     num_rollout: int # 一度にrolloutする数
 
 
-@ray.remote
+@ray.remote(num_cpus=1)
 class Actor(IActor):
     def __init__(self, param: ActorParameter):
         
