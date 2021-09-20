@@ -35,7 +35,7 @@ class LearnerParameter(NamedTuple):
     optimizer: torch.optim.Optimizer
     num_multi_step_bootstrap: int  # multi-step bootstrapのステップ数
 
-@ray.remote(num_cpus=1)
+@ray.remote
 class Learner(ILearner):
     def __init__(self, param):
         self.batch_size = param.batch_size
