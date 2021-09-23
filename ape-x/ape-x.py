@@ -25,7 +25,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 config = {
   "name": "breakout_apex",
-  "debug": False,  # if true, disable write result to output_dir
+  "debug": True,  # if true, disable write result to output_dir
   "train_mode": True,
   "weight_path": "./results/20210919174401/3000.pth",
   "output_dir": "./results/{}".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")),
@@ -74,20 +74,22 @@ def save_config(output_dir, config):
 
 if __name__ == "__main__":
 
-    '''envの作成'''
-    #env = CartpoleEnv()
-    #num_actions = env.action_space.n
-    #num_states = env.observation_space.shape[0]
-
+    ''' breakout '''
     env = BreakoutEnv()
     num_actions = env.action_space.n
     init_screen = env.reset()
     _, ch, screen_height, screen_width = init_screen.shape
 
-    '''netの作成'''
-    #net = DuelingLinearNet(num_states, num_actions)
     net = DuelingCNNNet(screen_height, screen_width, num_actions)
     optimizer = optim.Adam(net.parameters(), lr=0.001)
+
+    '''cartpole'''
+    '''env = CartpoleEnv()
+    num_actions = env.action_space.n
+    num_states = env.observation_space.shape[0]
+
+    net = DuelingLinearNet(num_states, num_actions)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)'''
 
     '''actorの作成'''
     num_actors = config["actor"]["num_actors"]
