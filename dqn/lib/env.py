@@ -114,6 +114,8 @@ class WarpFrame(gym.ObservationWrapper):
         self.observation_space = spaces.Box(low=0, high=255, shape=(self.height, self.width, 1), dtype=np.uint8)
 
     def observation(self, frame):
+        screen_height, screen_width, c = frame.shape
+        frame = frame[int(screen_height*0.1):, :]
         transform = T.Compose([T.ToPILImage(),T.Grayscale(),
                     T.Resize((self.width, self.height), interpolation=T.InterpolationMode.BICUBIC),
                     T.ToTensor()])
