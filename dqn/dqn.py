@@ -22,17 +22,17 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #####         Main         ######
 #################################
 
-env = BreakoutEnv()
+'''env = BreakoutEnv()
 num_actions = env.action_space.n
 init_screen = env.reset()
 _, ch, screen_height, screen_width = init_screen.shape
-net = DuelingCNNNet(screen_height, screen_width, num_actions)
+net = DuelingCNNNet(screen_height, screen_width, num_actions)'''
 
 
-#env = CartpoleEnv()
-#num_actions = env.action_space.n
-#num_states = env.observation_space.shape[0]
-#net = DuelingLinearNet(num_states, num_actions)
+env = CartpoleEnv()
+num_actions = env.action_space.n
+num_states = env.observation_space.shape[0]
+net = DuelingLinearNet(num_states, num_actions)
 
 config = {
   "name": "Carpole_dqn",

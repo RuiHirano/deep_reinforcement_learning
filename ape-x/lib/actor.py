@@ -83,9 +83,10 @@ class Actor(IActor):
             
             transition = Transition(
                         self.state, 
-                        torch.tensor([[action]], device=device), 
+                        action, 
                         next_state, 
-                        torch.tensor([reward], device=device)
+                        reward,
+                        done
                     )
             transition = self._get_multi_step_transition(transition)
             if transition is not None:
@@ -114,8 +115,9 @@ class Actor(IActor):
         transitions = random.sample(self.buffer, self.batch_size)
         batch = Transition(*zip(*transitions))
         state_batch = torch.cat(batch.state).to(device) # state: tensor([[0.5, 0.4, 0.5, 0], ...]) size(32, 4)
-        action_batch = torch.cat(batch.action).to(device) # action: tensor([[1],[0],[0]...]) size(32, 1) 
-        reward_batch = torch.cat(batch.reward).to(device) # reward: tensor([1, 1, 1, 0, ...]) size(32)
+        action_batch = torch.Tensor(list(batch.action)).unsqueeze(1).type(torch.int64).to(device) # action: tensor([[1],[0],[0]...]) size(32, 1) 
+        reward_batch = torch.Tensor(list(batch.reward)).to(device) # reward: tensor([1, 1, 1, 0, ...]) size(32)
+        done_batch = torch.Tensor(list(batch.done)).to(device) # reward: tensor([T, F, F, T, ...]) size(32)
         assert action_batch.size() == (self.batch_size,1)
         assert reward_batch.size() == (self.batch_size,)
 
@@ -124,7 +126,7 @@ class Actor(IActor):
         assert Q.size() == (self.batch_size,1)
 
         # Target Q value
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=device, dtype=torch.bool) # non_final_mask: tensor([True, True, True, False, ...]) size(32)
+        non_final_mask = torch.logical_not(done_batch) # non_final_mask: tensor([True, True, True, False, ...]) size(32)
         non_final_next_states = torch.cat([s for s in batch.next_state if s is not None]).to(device) # size(32-None num,4)
         next_state_values = torch.zeros(self.batch_size, device=device)
         next_state_values[non_final_mask] = self.q_network(non_final_next_states).max(1)[0].detach() # size(32)
@@ -145,7 +147,6 @@ class Actor(IActor):
         if len(self.multi_step_transitions) < self.num_multi_step_bootstrap:
             return None
 
-        next_state = transition.next_state
         nstep_reward = 0
         for i in range(self.num_multi_step_bootstrap):
             r = self.multi_step_transitions[i].reward
@@ -153,12 +154,11 @@ class Actor(IActor):
 
             # 終端の場合、それ以降の遷移は次のepisodeのものなので計算しない
             if self.multi_step_transitions[i].next_state is None:
-                next_state = None
                 break
 
         # 最も古い遷移を捨てる
-        state, action, _, _ = self.multi_step_transitions.pop(0)
+        state, action, next_state, _, done = self.multi_step_transitions.pop(0)
     
         # 時刻tでのstateとaction、t+nでのstate、その間での報酬の割引累積和をreplay memoryに登録
-        return Transition(state, action, next_state, nstep_reward)
+        return Transition(state, action, next_state, nstep_reward, done)
 

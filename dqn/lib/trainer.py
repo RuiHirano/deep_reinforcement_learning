@@ -58,7 +58,6 @@ class Trainer(ITrainer):
                 #print("action", action)
                 ''' 行動に対する環境や報酬を取得する '''
                 next_state, reward, done, _ = self.env.step(action)  # state [0,0,0,0...window_size], reward 1.0, done False, input: action 0 or 1 or 2
-
                 ''' エージェントに記憶させる '''
                 self.agent.memorize(
                     Transition(
@@ -66,6 +65,7 @@ class Trainer(ITrainer):
                         action, 
                         next_state, 
                         reward,
+                        done
                     )
                 )
 

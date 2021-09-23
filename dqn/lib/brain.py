@@ -102,6 +102,7 @@ class Brain(IBrain):
         state_batch = torch.cat(batch.state).to(device) # state: tensor([[0.5, 0.4, 0.5, 0], ...]) size(32, 4)
         action_batch = torch.Tensor(list(batch.action)).unsqueeze(1).type(torch.int64).to(device) # action: tensor([[1],[0],[0]...]) size(32, 1) 
         reward_batch = torch.Tensor(list(batch.reward)).to(device) # reward: tensor([1, 1, 1, 0, ...]) size(32)
+        done_batch = torch.Tensor(list(batch.done)).to(device) # reward: tensor([T, F, F, T, ...]) size(32)
         #next_state_batch = torch.cat(batch.next_state) # next_state: tensor([[0.5, 0.4, 0.5, 0], ...]) size(32, 4)
         #assert state_batch.size() == (self.BATCH_SIZE,self.num_states) # TODO: fix assertion
         #assert next_state_batch.size() == (self.BATCH_SIZE,self.num_states)
@@ -118,14 +119,10 @@ class Brain(IBrain):
         ''' 教師データを作成する '''
         ''' target = 次のステップでの行動価値の最大値 * 時間割引率 + 即時報酬 '''
          # doneされたかどうか doneであればfalse
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                              batch.next_state)), device=device, dtype=torch.bool) # non_final_mask: tensor([True, True, True, False, ...]) size(32)
+        non_final_mask = torch.logical_not(done_batch) # non_final_mask: tensor([True, True, True, False, ...]) size(32)
         non_final_next_states = torch.cat([s for s in batch.next_state
                                                     if s is not None]).to(device) # size(32-None num,4)
         assert non_final_mask.size() == (self.BATCH_SIZE,)
-        #print(non_final_next_states.size())
-        #assert non_final_next_states.size() == (self.BATCH_SIZE,self.num_states)
-        
 
         # 次の環境での行動価値
         next_state_values = torch.zeros(self.BATCH_SIZE, device=device)
@@ -172,22 +169,20 @@ class Brain(IBrain):
         if len(self.multi_step_transitions) < self.num_multi_step_bootstrap:
             return None
 
-        next_state = transition.next_state
         nstep_reward = 0
         for i in range(self.num_multi_step_bootstrap):
             r = self.multi_step_transitions[i].reward
             nstep_reward += r * self.GAMMA ** i
 
             # 終端の場合、それ以降の遷移は次のepisodeのものなので計算しない
-            if self.multi_step_transitions[i].next_state is None:
-                next_state = None
+            if self.multi_step_transitions[i].done:
                 break
 
         # 最も古い遷移を捨てる
-        state, action, _, _ = self.multi_step_transitions.pop(0)
+        state, action, next_state, _, done = self.multi_step_transitions.pop(0)
     
         # 時刻tでのstateとaction、t+nでのstate、その間での報酬の和をreplay memoryに登録
-        return Transition(state, action, next_state, nstep_reward)
+        return Transition(state, action, next_state, nstep_reward, done)
 
 
     def update_target_model(self):

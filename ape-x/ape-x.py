@@ -75,21 +75,21 @@ def save_config(output_dir, config):
 if __name__ == "__main__":
 
     ''' breakout '''
-    env = BreakoutEnv()
+    '''env = BreakoutEnv()
     num_actions = env.action_space.n
     init_screen = env.reset()
     _, ch, screen_height, screen_width = init_screen.shape
 
     net = DuelingCNNNet(screen_height, screen_width, num_actions)
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)'''
 
     '''cartpole'''
-    '''env = CartpoleEnv()
+    env = CartpoleEnv()
     num_actions = env.action_space.n
     num_states = env.observation_space.shape[0]
 
     net = DuelingLinearNet(num_states, num_actions)
-    optimizer = optim.Adam(net.parameters(), lr=0.001)'''
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
 
     '''actorの作成'''
     num_actors = config["actor"]["num_actors"]

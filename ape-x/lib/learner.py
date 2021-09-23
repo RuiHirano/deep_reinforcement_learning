@@ -57,8 +57,9 @@ class Learner(ILearner):
 
             batch = Transition(*zip(*transitions))
             state_batch = torch.cat(batch.state).to(device) # state: tensor([[0.5, 0.4, 0.5, 0], ...]) size(32, 4)
-            action_batch = torch.cat(batch.action).to(device) # action: tensor([[1],[0],[0]...]) size(32, 1) 
-            reward_batch = torch.cat(batch.reward).to(device) # reward: tensor([1, 1, 1, 0, ...]) size(32)
+            action_batch = torch.Tensor(list(batch.action)).unsqueeze(1).type(torch.int64).to(device) # action: tensor([[1],[0],[0]...]) size(32, 1) 
+            reward_batch = torch.Tensor(list(batch.reward)).to(device) # reward: tensor([1, 1, 1, 0, ...]) size(32)
+            done_batch = torch.Tensor(list(batch.done)).to(device) # reward: tensor([T, F, F, T, ...]) size(32)
 
             ''' 出力データ：行動価値を作成 '''
             Q = self.policy_net(state_batch).gather(1, action_batch) # size(32, 1)
@@ -66,7 +67,7 @@ class Learner(ILearner):
 
             ''' 教師データを作成する '''
             ''' target = 次のステップでの行動価値の最大値 * 時間割引率 + 即時報酬 '''
-            non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=device, dtype=torch.bool) # non_final_mask: tensor([True, True, True, False, ...]) size(32)
+            non_final_mask = torch.logical_not(done_batch) # non_final_mask: tensor([True, True, True, False, ...]) size(32)
             non_final_next_states = torch.cat([s for s in batch.next_state if s is not None]).to(device) # size(32-None num,4)
             next_state_values = torch.zeros(self.batch_size, device=device)
             next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach() # size(32)
