@@ -100,8 +100,8 @@ class Brain(IBrain):
         transitions = self.replay.sample(self.BATCH_SIZE)
         batch = Transition(*zip(*transitions))
         state_batch = torch.cat(batch.state).to(device) # state: tensor([[0.5, 0.4, 0.5, 0], ...]) size(32, 4)
-        action_batch = torch.cat(batch.action).to(device) # action: tensor([[1],[0],[0]...]) size(32, 1) 
-        reward_batch = torch.cat(batch.reward).to(device) # reward: tensor([1, 1, 1, 0, ...]) size(32)
+        action_batch = torch.Tensor(list(batch.action)).unsqueeze(1).type(torch.int64).to(device) # action: tensor([[1],[0],[0]...]) size(32, 1) 
+        reward_batch = torch.Tensor(list(batch.reward)).to(device) # reward: tensor([1, 1, 1, 0, ...]) size(32)
         #next_state_batch = torch.cat(batch.next_state) # next_state: tensor([[0.5, 0.4, 0.5, 0], ...]) size(32, 4)
         #assert state_batch.size() == (self.BATCH_SIZE,self.num_states) # TODO: fix assertion
         #assert next_state_batch.size() == (self.BATCH_SIZE,self.num_states)
@@ -195,7 +195,7 @@ class Brain(IBrain):
         self.target_net.load_state_dict(self.policy_net.state_dict())
     
     def decide_action(self, state):
-        state = torch.tensor(state, device=device).float()
+        state = state.clone().detach().float()
         sample = random.random()
         eps_threshold = self.EPS_END + (self.EPS_START - self.EPS_END) * \
             math.exp(-1. * self.steps_done / self.EPS_DECAY)

@@ -63,9 +63,9 @@ class Trainer(ITrainer):
                 self.agent.memorize(
                     Transition(
                         state, 
-                        torch.tensor([[action]], device=device), 
+                        action, 
                         next_state, 
-                        torch.tensor([reward], device=device)
+                        reward,
                     )
                 )
 
