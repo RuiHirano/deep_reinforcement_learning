@@ -49,20 +49,21 @@ class Tester(ITester):
 
         episode_rewards_all = []
         state = self.env.reset()
-
         for i in range(self.num_test_episode):
             state = self.env.reset()
             episode_rewards = 0
             done = False
             prev_action = 0
+            h, c = None, None
             while not done:
                 if self.render:
                     self.env.render()
-                x, _ = self.q_network(state, (None, None), prev_action)
+                x, (next_h, next_c) = self.q_network(state, (h, c), prev_action)
                 action = np.argmax(x.tolist())  # TODO
                 next_state, reward, done, _ = self.env.step(action)
                 episode_rewards += reward
-                state = next_state
+                state, h, c, prev_action = next_state, next_h, next_c, action
+                
             episode_rewards_all.append(episode_rewards)
 
         mean_test_score = np.array(episode_rewards_all).mean()

@@ -1,0 +1,11 @@
+version: '3'
+services:
+  rllib_finance:
+    tty: true
+    image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-runtime
+    container_name: rllib_finance
+    volumes:
+      - "$PWD:/workspace"
+    ports:
+      - "6006:6006"
+    command: bash

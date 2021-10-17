@@ -26,8 +26,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 config = {
   "name": "breakout_r2d2",
   "debug": True,  # if true, disable write result to output_dir
-  "train_mode": True,
-  "weight_path": "./results/20210919174401/3000.pth",
+  "train_mode": False,
+  "weight_path": "./results/20210925235842/500.pth",
   "output_dir": "./results/{}".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")),
   "replay": {
     "capacity": 10000,
@@ -35,22 +35,22 @@ config = {
     "epsilon": 0.0001
   },
   "actor": {
-    "batch_size": 32,
-    "gamma": 0.997,
+    "batch_size": 16,
+    "gamma": 0.97,
     "num_actors": 10,
     "num_rollout": 200,
     "num_multi_step_bootstrap": 5,
   },
   "learner": {
-    "batch_size": 32,
-    "gamma": 0.997,
+    "batch_size": 16,
+    "gamma": 0.97,
     "num_multi_step_bootstrap": 5,
   },
   "train": {
-    "num_minibatch": 8,
-    "num_update_cycles": 3000,
-    "batch_size": 32,
-    "save_iter": 300,
+    "num_minibatch": 16,
+    "num_update_cycles": 500,
+    "batch_size": 16,
+    "save_iter": 100,
   },
   "tester": {
     "num_test_episode": 10,
@@ -96,10 +96,10 @@ if __name__ == "__main__":
         epsilon=epsilons[i],
         gamma=config["actor"]["gamma"],
         num_multi_step_bootstrap=config["actor"]["num_multi_step_bootstrap"],
-        burnin_len=4,
-        unroll_len=4,
+        burnin_len=2,
+        unroll_len=2,
         eta=0.9,
-        alpha=0.6,
+        alpha=0.9,
         priority_epsilon=0.0001
     )) for i in range(num_actors)]
 
@@ -115,10 +115,10 @@ if __name__ == "__main__":
         num_multi_step_bootstrap=config["learner"]["num_multi_step_bootstrap"],
         net=net,
         optimizer=optimizer,
-        burnin_len=4,
-        unroll_len=4,
+        burnin_len=2,
+        unroll_len=2,
         eta=0.9,
-        alpha=0.6,
+        alpha=0.9,
         env=env,
         priority_epsilon=0.0001
     ))

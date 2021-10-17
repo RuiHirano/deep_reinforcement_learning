@@ -35,10 +35,10 @@ class RecurrentLinearNet(nn.Module):
         #print(h_n.size(), c_n.size()) # ((D∗num_layers, batch_size, hidden))
         x = F.relu(x).squeeze(0) # (length, batch, 128) -> (batch, 128)
         x = F.relu(self.output(x)) # (batch, action_size)
-        return x, (c_n, h_n)
+        return x, (h_n, c_n)
 
     def select_action(self, state, states, prev_action, epsilon):
-        x, (c_n, h_n) = self(state, states, prev_action)
+        x, (h_n, c_n) = self(state, states, prev_action)
         sample = random.random()
         if sample > epsilon:
             with torch.no_grad():
@@ -46,7 +46,7 @@ class RecurrentLinearNet(nn.Module):
         else:
             # ε-greedy
             action = random.randrange(self.num_actions)  
-        return action, (c_n, h_n)
+        return action, (h_n, c_n)
 
 class RecurrentCNNNet(nn.Module):
     '''二次元画像入力のDQN'''

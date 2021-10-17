@@ -98,7 +98,6 @@ class Trainer(ITrainer):
             finished_learner, _ = ray.wait([wip_learner], timeout=0)
             if finished_learner:
                 current_weights, indices, priorities, loss = ray.get(finished_learner[0])
-                #print("trainer", current_weights['fcA1.weight'][0][0])
                 current_weights = ray.put(current_weights)
                 #: 優先度の更新とminibatchの作成はlearnerよりも十分に速いという前提
                 # replayのpushでのidxの更新とindicesはほぼ被らないという前提
@@ -109,7 +108,6 @@ class Trainer(ITrainer):
                 wip_learner = self.learner.update_network.remote(minibatchs)
                 
                 mean_actor_score = np.array(actor_score_all).mean()
-                actor_score_all = []
                 elapsed_time = round(time.time() - start, 2)
                 elapsed_total_time = round(time.time() - start_total, 2)
                 update_cycles += 1
@@ -117,9 +115,9 @@ class Trainer(ITrainer):
                 if update_cycles % 10 == 0:
                     #:学習状況のtest
                     test_update_cycles = update_cycles
-                    print("test start ", test_update_cycles)
                     wip_tester = self.tester.test_play.remote(current_weights)
                     color.green("Update: {} ({:.1f}%), Loss : {:.8f}, ReplaySize: {}, ActorCycle： {}, ActorScore: {:.1f}, Time: {} sec, {} sec".format(update_cycles, (update_cycles*100 / self.num_update_cycles), loss, len(self.replay), actor_cycles, mean_actor_score, elapsed_time, elapsed_total_time))
+                    print("actor scores", actor_score_all[:10])
                     if not self.debug:
                         #self.writer.add_scalar('test_score', test_score, update_cycles)
                         self.writer.add_scalar('loss', loss, update_cycles)
@@ -128,6 +126,7 @@ class Trainer(ITrainer):
                     fn = "{}/{}.pth".format(self.output_dir, update_cycles+1)
                     self.learner.save_model.remote(fn)
                     print('Saved model! Name: {}'.format(fn))
+                actor_score_all = []
                 actor_cycles = 0
 
             # test終了時の処理

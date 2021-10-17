@@ -1,11 +1,12 @@
 
+import sys
 from lib.env import CartpoleEnv, BreakoutEnv
 import time
 import random
-env = BreakoutEnv()
-
+import gym
+env = gym.make('Breakout-v0').unwrapped
 state = env.reset()
-for i in range(1000):
+for i in range(3500):
 
     time.sleep(0.1)
     env.render()
@@ -13,4 +14,4 @@ for i in range(1000):
     next_state, reward, done, _ = env.step(action)
     print(i, reward, done, next_state)
     if done:
-        state = env.reset()
+        sys.exit(1)

@@ -1,0 +1,11 @@
+version: '3'
+services:
+  dqn_breakout:
+    tty: true
+    image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-runtime
+    container_name: dqn_breakout
+    volumes:
+      - "$PWD:/workspace"
+    ports:
+      - "6006:6006"
+    command: bash

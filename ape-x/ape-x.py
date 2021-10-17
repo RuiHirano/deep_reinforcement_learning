@@ -24,10 +24,10 @@ import ray
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 config = {
-  "name": "breakout_apex",
+  "name": "cartpole_apex",
   "debug": True,  # if true, disable write result to output_dir
-  "train_mode": True,
-  "weight_path": "./results/20210919174401/3000.pth",
+  "train_mode": False,
+  "weight_path": "./results/20210925235213/500.pth",
   "output_dir": "./results/{}".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")),
   "replay": {
     "capacity": 10000,
@@ -50,9 +50,9 @@ config = {
   },
   "train": {
     "num_minibatch": 16,
-    "num_update_cycles": 3000,
+    "num_update_cycles": 500,
     "batch_size": 32,
-    "save_iter": 300,
+    "save_iter": 100,
   },
   "tester": {
     "num_test_episode": 10,

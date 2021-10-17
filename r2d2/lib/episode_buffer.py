@@ -5,10 +5,10 @@ import numpy as np
 import torch
 
 Transition = collections.namedtuple(
-    "Transition", ["state", "action", "reward", "next_state", "done", "c", "h", "prev_action"])
+    "Transition", ["state", "action", "reward", "next_state", "done", "h", "c", "prev_action"])
 
 Segment = collections.namedtuple(
-    "Segment", ["states", "actions", "rewards", "dones", "c_init", "h_init", "a_init", "last_state"])
+    "Segment", ["states", "actions", "rewards", "dones", "h_init", "c_init", "a_init", "last_state"])
 
 
 class EpisodeBuffer:
@@ -81,7 +81,7 @@ class EpisodeBuffer:
                         break
 
             # rewardを更新
-            transition = Transition(transition.state, transition.action, nstep_reward, transition.next_state, transition.done, transition.c, transition.h, transition.prev_action)
+            transition = Transition(transition.state, transition.action, nstep_reward, transition.next_state, transition.done, transition.h, transition.c, transition.prev_action)
     
             # 時刻tでのstateとaction、t+nでのstate、その間での報酬の割引累積和をreplay memoryに登録
             multi_step_transitions.append(transition)

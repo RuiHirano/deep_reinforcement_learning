@@ -101,16 +101,16 @@ class Learner(ILearner):
 
             ''' 出力データ：行動価値を作成 '''
             #: burn-in
-            c_batch, h_batch = c0_batch, h0_batch
+            h_batch, c_batch = h0_batch, c0_batch
             for t in range(self.burnin_len):
-                _, (c_batch, h_batch) = self.policy_net(
-                    states_batch[t], states=[c_batch, h_batch], prev_action=prev_actions_batch[t])
+                _, (h_batch, c_batch) = self.policy_net(
+                    states_batch[t], states=[h_batch, c_batch], prev_action=prev_actions_batch[t])
 
             # unroll
             qvalues = [] # [[0.2, 0.3, 0.4,0.3 ], [0.3, 0.2, ], ...] # (unroll_len, batch_size, action_space)
             for t in range(self.burnin_len, self.burnin_len+self.unroll_len):
-                q, (c_batch, h_batch) = self.policy_net(
-                    states_batch[t], states=[c_batch, h_batch], prev_action=prev_actions_batch[t])
+                q, (h_batch, c_batch) = self.policy_net(
+                    states_batch[t], states=[h_batch, c_batch], prev_action=prev_actions_batch[t])
                 qvalues.append(q)
             qvalues = torch.stack(qvalues)   # (unroll_len, batch_size, action_space)
 
@@ -122,16 +122,16 @@ class Learner(ILearner):
             ''' 教師データを作成する '''
             ''' target = 次のステップでの行動価値の最大値 * 時間割引率 + 即時報酬 '''
             #: burn-in
-            c_batch, h_batch = c0_batch, h0_batch
+            h_batch, c_batch = h0_batch, c0_batch
             for t in range(self.burnin_len+1):
-                _, (c_batch, h_batch) = self.target_net(
-                    states_batch[t], states=[c_batch, h_batch], prev_action=prev_actions_batch[t])
+                _, (h_batch, c_batch) = self.target_net(
+                    states_batch[t], states=[h_batch, c_batch], prev_action=prev_actions_batch[t])
 
             # unroll
             next_qvalues = []
             for t in range(self.burnin_len, self.burnin_len+self.unroll_len):
-                q, (c_batch, h_batch) = self.target_net(
-                    next_states_batch[t], states=[c_batch, h_batch], prev_action=actions_batch[t])
+                q, (h_batch, c_batch) = self.target_net(
+                    next_states_batch[t], states=[h_batch, c_batch], prev_action=actions_batch[t])
                 next_qvalues.append(q)
             next_qvalues = torch.stack(next_qvalues)   # (unroll_len, batch_size, action_space)
 

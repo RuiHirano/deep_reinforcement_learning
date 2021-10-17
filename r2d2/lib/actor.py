@@ -85,27 +85,23 @@ class Actor(IActor):
         episode_buffer = EpisodeBuffer(burnin_length=self.burnin_len, unroll_length=self.unroll_len, gamma=self.gamma, num_multi_step_bootstrap=self.num_multi_step_bootstrap)
         state = self.env.reset()
         # c, h = self.q_network.lstm.get_initial_state(batch_size=1)
-        c, h = None, None
+        h, c = None, None
         prev_action = 0
         done = False
         count=0
         while not done:
             count += 1
             #state = torch.unsqueeze(state, 0)
-            action, (next_c, next_h) = self.q_network.select_action(state, (c, h), prev_action, self.epsilon)
+            action, (next_h, next_c) = self.q_network.select_action(state, (h, c), prev_action, self.epsilon)
             next_state, reward, done, _ = self.env.step(action)
             score += reward
-            if c == None or h == None:
-                transition = Transition(state, action, reward, next_state, done, next_c, next_h, prev_action)
+            if h == None or c == None:
+                transition = Transition(state, action, reward, next_state, done, next_h, next_c, prev_action)
             else:
-                transition = Transition(state, action, reward, next_state, done, c, h, prev_action)
-            #print("transc", transition.c)
-            #transition = self._get_multi_step_transition(transition)
-            #if transition is not None:
-                #print(count, transition.done, transition.next_state)
+                transition = Transition(state, action, reward, next_state, done, h, c, prev_action)
             episode_buffer.add(transition)
 
-            state, c, h, prev_action = next_state, next_c, next_h, action
+            state, h, c, prev_action = next_state, next_h, next_c, action
 
         '''Compute TD Error'''
         segments = episode_buffer.pull_segments()
@@ -123,7 +119,6 @@ class Actor(IActor):
         assert actions_batch.size() == (self.burnin_len+self.unroll_len, batch_size,1)
         assert rewards_batch.size() == (self.unroll_len, batch_size)
         assert dones_batch.size() == (self.unroll_len, batch_size)
-        #print(dones_batch.size(), dones_batch)
 
         #: Stored state
         c0_batch = torch.cat(batch.c_init, dim=1).to(device)  # (1, batch_size, lstm_out_dim)
@@ -138,16 +133,16 @@ class Actor(IActor):
         assert last_states_batch.size() == (1, batch_size, self.num_states)
 
         #: burn-in
-        c_batch, h_batch = c0_batch, h0_batch
+        h_batch, c_batch = h0_batch, c0_batch
         for t in range(self.burnin_len):
-            _, (c_batch, h_batch) = self.q_network(
-                states_batch[t], states=[c_batch, h_batch], prev_action=prev_actions_batch[t])
+            _, (h_batch, c_batch) = self.q_network(
+                states_batch[t], states=[h_batch, c_batch], prev_action=prev_actions_batch[t])
 
         # unroll
         qvalues = [] # [[0.2, 0.3, 0.4,0.3 ], [0.3, 0.2, ], ...] # (unroll_len, batch_size, action_space)
         for t in range(self.burnin_len, self.burnin_len+self.unroll_len):
-            q, (c_batch, h_batch) = self.q_network(
-                states_batch[t], states=[c_batch, h_batch], prev_action=prev_actions_batch[t])
+            q, (h_batch, c_batch) = self.q_network(
+                states_batch[t], states=[h_batch, c_batch], prev_action=prev_actions_batch[t])
             qvalues.append(q)
         qvalues = torch.stack(qvalues)   # (unroll_len, batch_size, action_space)
 
@@ -157,7 +152,7 @@ class Actor(IActor):
         assert Q.size() == (self.unroll_len, batch_size)
 
         # Target Q value
-        remaining_qvalue, _ = self.q_network(last_states_batch[0], states=[c_batch, h_batch], prev_action=actions_batch[-1])
+        remaining_qvalue, _ = self.q_network(last_states_batch[0], states=[h_batch, c_batch], prev_action=actions_batch[-1])
         remaining_qvalue = remaining_qvalue.unsqueeze(0)          # (1, batch_size, action_space)
         next_qvalues = torch.cat([qvalues[1:], remaining_qvalue], dim=0)    # (unroll_len, batch_size, action_space)
         next_actions = torch.argmax(next_qvalues, dim=2)  # (unroll_len, batch_size)
@@ -195,7 +190,7 @@ class Actor(IActor):
                 break
 
         # 最も古い遷移を捨てる
-        state, action, _, next_state, done, c, h, prev_action = self.multi_step_transitions.pop(0)
+        state, action, _, next_state, done, h, c, prev_action = self.multi_step_transitions.pop(0)
     
         # 時刻tでのstateとaction、t+nでのstate、その間での報酬の割引累積和をreplay memoryに登録
-        return Transition(state, action, nstep_reward, next_state, done, c, h, prev_action)
+        return Transition(state, action, nstep_reward, next_state, done, h, c, prev_action)
