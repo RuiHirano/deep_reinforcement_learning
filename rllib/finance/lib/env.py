@@ -22,7 +22,8 @@ class FinanceEnv(gym.Wrapper):
     def __init__(self, env_config):
         param = env_config["param"]
         param.window_size += 1 # because drop by log_diff
-        super().__init__(TradingEnv(param))
+        self.env = TradingEnv(param)
+        super().__init__(self.env)
         self.action_space = spaces.Discrete(3) # action is [0, 1, 2] 0: HOLD, 1: BUY, 2: SELL
         self.observation_space = spaces.Box(low=-10, high=10, shape=(param.window_size-1, 4), dtype=np.float64)
         self.position_side = 0 # 0: No Position, 1: Long Position, 2: Short Position
